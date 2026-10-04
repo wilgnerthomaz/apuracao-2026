@@ -50,7 +50,8 @@
   .mapcard{position:relative}
   .maphead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
   select{font:inherit;font-size:14px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
-  svg#mapa{width:100%;height:auto;display:block;margin-top:8px}
+  .mapbox{position:relative;margin-top:8px}
+  svg#mapa{width:100%;height:auto;display:block}
   .uf path{stroke:var(--stroke);stroke-width:1.4;stroke-linejoin:round;transition:fill .4s,opacity .2s;cursor:pointer}
   .uf.dim path{opacity:.35}
   .uf:hover path,.uf.sel path{stroke:var(--ink);stroke-width:2.5}
@@ -100,16 +101,15 @@
   footer a{color:inherit}
 
   /* mapa em blocos (celular) */
-  #tiles{display:none;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:12px}
-  .tile{aspect-ratio:1/1.05;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;cursor:pointer;line-height:1.15;font-variant-numeric:tabular-nums;transition:background .4s,opacity .2s;-webkit-tap-highlight-color:transparent}
-  .tile b{font-size:13px;font-weight:800}
-  .tile .v{font-size:12px;font-weight:700}
-  .tile .a{font-size:9.5px;font-weight:600;opacity:.9;white-space:nowrap;display:flex;align-items:center;gap:3px;margin-top:2px}
-  .tile .a i{display:block;width:16px;height:4px;border-radius:2px;background:#fff5;overflow:hidden}
-  .tile .a i span{display:block;height:100%;background:#fff}
-  .tile.sel{outline:2.5px solid var(--ink);outline-offset:1px}
-  .tile.dim{opacity:.35}
-  .tiles-note{display:none;font-size:11px;color:var(--muted);margin-top:8px}
+  /* zoom do mapa */
+  svg#mapa{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+  svg#mapa.zoomed{touch-action:none;cursor:grab}
+  svg#mapa.dragging{cursor:grabbing}
+  .zoom{position:absolute;right:6px;bottom:6px;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:0 2px 8px #0002;overflow:hidden;z-index:2}
+  .zoom button{font:inherit;font-size:20px;line-height:1;width:40px;height:40px;border:0;background:none;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .zoom button + button{border-top:1px solid var(--line)}
+  .zoom button:hover{background:var(--line)}
+  .zoom-hint{display:none;font-size:11px;color:var(--muted);margin-top:8px}
 
   /* Desktop: tudo cabe numa tela, sem rolagem da página */
   @media (min-width:1001px) and (min-height:620px){
@@ -137,8 +137,9 @@
     .maphead{position:absolute;top:14px;left:18px;right:18px;z-index:1;pointer-events:none}
     .maphead select{pointer-events:auto}
     .legend{position:absolute;left:18px;bottom:14px;flex-direction:column;gap:6px;margin:0;z-index:1}
-    .err{position:absolute;right:18px;bottom:14px;margin:0}
-    svg#mapa{flex:1 1 0;min-height:0;width:100%;height:auto;margin:0}
+    .err{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;margin:0}
+    .mapbox{flex:1 1 0;min-height:0;margin:0}
+    svg#mapa{width:100%;height:100%}
     .panel{overflow-y:auto;min-height:0}
     .clist{gap:8px}
     footer{display:none}
@@ -177,15 +178,10 @@
     .apur .cnt{flex-basis:100%}
     .maphead strong{font-size:15px}
     .maphead select{width:100%}
-    svg#mapa{display:none}
-    #tiles{display:grid}
-    .tiles-note{display:block}
+    .zoom-hint{display:block}
     .legend{font-size:12px;gap:10px}
     .stats b{font-size:14px}
     .tip{display:none !important}
-  }
-  @media (max-width:360px){
-    .tile b{font-size:12px} .tile .v{font-size:11px} .tile .a{font-size:8.5px} .tile .a i{width:12px}
   }
 </style>
 </head>
@@ -227,9 +223,15 @@
         <strong>Quem lidera em cada estado</strong>
         <select id="sel"><option value="br">Todos os estados</option></select>
       </div>
+      <div class="mapbox">
       <svg id="mapa" role="img" aria-label="Mapa do Brasil com o candidato que lidera em cada estado"></svg>
-      <div id="tiles" role="list" aria-label="Estados com o candidato que lidera"></div>
-      <div class="tiles-note">Cada bloco é um estado: sigla, % de quem lidera e, embaixo, a barra de seções apuradas no estado. Toque para ver o resultado completo.</div>
+      <div class="zoom" aria-label="Controles de zoom">
+        <button type="button" data-z="in" aria-label="Aproximar">+</button>
+        <button type="button" data-z="out" aria-label="Afastar">−</button>
+        <button type="button" data-z="reset" aria-label="Ver o Brasil inteiro">⟲</button>
+      </div>
+      </div>
+      <div class="zoom-hint">Use dois dedos para dar zoom e arraste para mover o mapa.</div>
       <div class="legend" id="legend"></div>
       <div class="err" id="err"></div>
     </section>
@@ -254,16 +256,6 @@ const BOLHAS = {rn:215, pb:280, pe:345, al:410, se:475, df:545, es:615, rj:685};
 const BX = 1030, BW = 150, BH = 56;
 // Ajuste de tamanho do rótulo para estados menores
 const ESCALA = {sc:.75, ac:.85, ap:.85, rr:.9, ro:.9, pr:.9, ce:.9, rs:.95};
-// Mapa em blocos para celular: [linha, coluna] numa grade de 6 colunas
-const BLOCOS = {
-  rr:[1,2], ap:[1,4],
-  am:[2,1], pa:[2,3], ma:[2,4], ce:[2,5], rn:[2,6],
-  ac:[3,1], ro:[3,2], to:[3,3], pi:[3,4], pe:[3,5], pb:[3,6],
-  mt:[4,2], go:[4,3], ba:[4,4], se:[4,5], al:[4,6],
-  ms:[5,2], df:[5,3], mg:[5,4], es:[5,5],
-  pr:[6,2], sp:[6,3], rj:[6,4],
-  sc:[7,2], rs:[8,2],
-};
 
 const state = { data:{}, sel:'br', next:REFRESH };
 const $ = id => document.getElementById(id);
@@ -333,25 +325,81 @@ function buildMap(){
         <tspan class="v" x="${BX + BW - 12}" dy="-9" font-size="20" font-weight="800">—</tspan>
         <tspan class="a" x="${BX + BW - 12}" dy="21" font-size="14" font-weight="600" opacity=".85"></tspan></text></g>`;
   }
-  svg.innerHTML = html;
+  svg.innerHTML = `<g id="vp">${html}</g>`;
   svg.querySelectorAll('[data-uf]').forEach(el => {
     const uf = el.dataset.uf;
     el.addEventListener('mousemove', e => showTip(uf, e));
     el.addEventListener('mouseleave', () => $('tip').style.display = 'none');
     el.addEventListener('click', () => select(state.sel === uf ? 'br' : uf));
   });
-  $('tiles').innerHTML = Object.entries(BLOCOS).map(([uf, [r, c]]) =>
-    `<div class="tile" role="listitem" data-tile="${uf}" style="grid-row:${r};grid-column:${c};background:var(--empty)"
-      aria-label="${M.uf[uf].nome}"><b>${uf.toUpperCase()}</b><span class="v">—</span><span class="a"></span></div>`).join('');
-  $('tiles').querySelectorAll('.tile').forEach(t => t.addEventListener('click', () => {
-    const uf = t.dataset.tile;
-    select(state.sel === uf ? 'br' : uf);
-    if (state.sel === uf) $('panel').scrollIntoView({behavior:'smooth', block:'start'});
-  }));
+  initZoom();
   const sel = $('sel');
   Object.entries(M.uf).sort((a,b) => a[1].nome.localeCompare(b[1].nome))
     .forEach(([uf, g]) => sel.add(new Option(g.nome, uf)));
   sel.addEventListener('change', () => select(sel.value));
+}
+
+/* ---------- ZOOM ---------- */
+// Zoom guardado em coordenadas do viewBox e salvo no navegador: sobrevive às atualizações e ao recarregar
+const ZOOM_KEY = 'apuracao2026-zoom', ZMAX = 8;
+const view = { k:1, x:0, y:0 };
+try { Object.assign(view, JSON.parse(localStorage.getItem(ZOOM_KEY)) || {}); } catch {}
+
+function initZoom(){
+  const svg = $('mapa'), vp = $('vp');
+  const [, , W, H] = svg.getAttribute('viewBox').split(' ').map(Number);
+  const pts = new Map();
+  let last = null, moved = 0;
+
+  const toSvg = (cx, cy) => { const m = svg.getScreenCTM(); return { x:(cx - m.e) / m.a, y:(cy - m.f) / m.d }; };
+  const apply = () => {
+    view.k = Math.min(ZMAX, Math.max(1, view.k));
+    view.x = Math.min(0, Math.max(W * (1 - view.k), view.x));
+    view.y = Math.min(0, Math.max(H * (1 - view.k), view.y));
+    vp.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
+    svg.classList.toggle('zoomed', view.k > 1.001);
+    try { localStorage.setItem(ZOOM_KEY, JSON.stringify(view)); } catch {}
+  };
+  const zoomAt = (f, p) => { const k2 = Math.min(ZMAX, Math.max(1, view.k * f)), r = k2 / view.k;
+    view.x = p.x - (p.x - view.x) * r; view.y = p.y - (p.y - view.y) * r; view.k = k2; apply(); };
+
+  svg.addEventListener('pointerdown', e => {
+    pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if (pts.size === 1) moved = 0;
+    last = null;
+  });
+  window.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    const p = [...pts.values()];
+    const cur = p.length >= 2
+      ? { cx:(p[0].x + p[1].x) / 2, cy:(p[0].y + p[1].y) / 2, d:Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) }
+      : { cx:p[0].x, cy:p[0].y, d:0 };
+    if (last && last.n === p.length) {
+      const s = svg.getScreenCTM().a;
+      if (p.length >= 2 && last.d) zoomAt(cur.d / last.d, toSvg(cur.cx, cur.cy));
+      if (view.k > 1.001 || p.length >= 2) {
+        view.x += (cur.cx - last.cx) / s; view.y += (cur.cy - last.cy) / s; apply();
+        moved += Math.abs(cur.cx - last.cx) + Math.abs(cur.cy - last.cy);
+        svg.classList.add('dragging');
+      }
+    }
+    last = { ...cur, n:p.length };
+  });
+  const up = e => { pts.delete(e.pointerId); last = null; if (!pts.size) svg.classList.remove('dragging'); };
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+  // Depois de arrastar, não seleciona o estado ao soltar
+  svg.addEventListener('click', e => { if (moved > 6) { e.stopPropagation(); moved = 0; } }, true);
+  svg.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.deltaY < 0 ? 1.2 : 1 / 1.2, toSvg(e.clientX, e.clientY)); }, { passive:false });
+
+  document.querySelectorAll('.zoom button').forEach(b => b.addEventListener('click', () => {
+    const centro = { x:W / 2, y:H / 2 };
+    if (b.dataset.z === 'in') zoomAt(1.5, centro);
+    else if (b.dataset.z === 'out') zoomAt(1 / 1.5, centro);
+    else { view.k = 1; view.x = 0; view.y = 0; apply(); }
+  }));
+  apply();
 }
 
 function select(uf){ state.sel = uf; $('sel').value = uf; render(); }
@@ -413,17 +461,6 @@ function render(){
     if (!d) return;
     t.querySelector('.v').textContent = d.cands[0].votos > 0 ? pctTxt1(d.cands[0].pct) : '—';
     t.querySelector('.a').textContent = `${pctTxt1(d.pctSecoes)} apur.`;
-  });
-
-  document.querySelectorAll('#tiles .tile').forEach(t => {
-    const uf = t.dataset.tile, d = state.data[uf];
-    t.classList.toggle('sel', state.sel === uf);
-    t.classList.toggle('dim', state.sel !== 'br' && state.sel !== uf);
-    if (!d) return;
-    const has = d.cands[0].votos > 0;
-    t.style.background = has ? cor(d.cands[0].n) : 'var(--empty)';
-    t.querySelector('.v').textContent = has ? pctTxt1(d.cands[0].pct) : '—';
-    t.querySelector('.a').innerHTML = `<i><span style="width:${d.pctSecoes}%"></span></i>${pctTxt1(d.pctSecoes)}`;
   });
 
   // Apuração geral
