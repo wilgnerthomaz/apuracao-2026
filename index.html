@@ -68,9 +68,6 @@
   .apur .track{flex:1;min-width:160px;height:10px;border-radius:99px;background:var(--empty);overflow:hidden}
   .apur .track span{display:block;height:100%;background:var(--ink);transition:width .6s}
   .apur .cnt{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-  .tcell .mini{height:3px;border-radius:99px;background:var(--empty);margin-top:5px;overflow:hidden}
-  .tcell .mini span{display:block;height:100%;background:var(--ink)}
-  .tcell > div:last-child{flex:1;min-width:0}
   .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;font-weight:600;color:var(--muted);margin-top:8px}
   .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 
@@ -98,12 +95,6 @@
   .stats b{display:block;font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums}
 
   /* tabela de estados */
-  .table{margin-top:16px}
-  .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-top:12px}
-  .tcell{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-size:13px}
-  .tcell:hover{border-color:var(--muted)}
-  .tcell .sw{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex:none}
-  .tcell b{font-variant-numeric:tabular-nums}
   .err{color:#d11a2a;font-size:13px;margin-top:8px}
   footer{margin-top:24px;font-size:12px;color:var(--muted)}
   footer a{color:inherit}
@@ -155,15 +146,11 @@
     #tiles{display:grid}
     .tiles-note{display:block}
     .legend{font-size:12px;gap:10px}
-    .tgrid{grid-template-columns:1fr 1fr;gap:6px}
-    .tcell{padding:7px 8px;gap:8px;font-size:12px}
-    .tcell .sw{width:30px;height:30px;font-size:12px}
     .stats b{font-size:14px}
     .tip{display:none !important}
   }
   @media (max-width:360px){
     .tile b{font-size:12px} .tile .v{font-size:11px} .tile .a{font-size:8.5px} .tile .a i{width:12px}
-    .tgrid{grid-template-columns:1fr}
   }
 </style>
 </head>
@@ -213,11 +200,6 @@
 
     <aside class="card panel" id="panel"></aside>
   </div>
-
-  <section class="card table">
-    <strong>Todos os estados</strong>
-    <div class="tgrid" id="tgrid"></div>
-  </section>
 
   <footer>Fonte: Tribunal Superior Eleitoral — <a href="https://resultados.tse.jus.br/oficial/app/index.html" target="_blank" rel="noopener">resultados.tse.jus.br</a>. Dados atualizados automaticamente a cada 30 segundos.</footer>
 </div>
@@ -420,7 +402,6 @@ function render(){
   }).join('') + `<span><i style="background:var(--empty)"></i>Sem votos apurados</span>`;
 
   renderPanel();
-  renderTable();
 }
 
 function renderPanel(){
@@ -446,20 +427,6 @@ function renderPanel(){
       <div>Nulos<b>${fmt(d.nulos)}</b></div>
     </div>
     ${uf !== 'br' ? '<button class="ghost" style="margin-top:14px" onclick="select(\'br\')">Ver total nacional</button>' : ''}`;
-}
-
-function renderTable(){
-  const rows = UFS.map(uf => [uf, state.data[uf]]).filter(r => r[1])
-    .sort((a,b) => MAPA_BRASIL.uf[a[0]].nome.localeCompare(MAPA_BRASIL.uf[b[0]].nome));
-  $('tgrid').innerHTML = rows.map(([uf, d]) => {
-    const [a, b] = d.cands, has = a.votos > 0;
-    return `<div class="tcell" onclick="select('${uf}')">
-      <div class="sw" style="background:${has ? cor(a.n) : 'var(--empty)'}">${uf.toUpperCase()}</div>
-      <div><div><b>${a.nome}</b> ${pctTxt(a.pct)}</div>
-      <div class="sub">vantagem ${has ? (a.pct - b.pct).toFixed(1).replace('.',',') + ' p.p.' : '—'} · ${pctTxt1(d.pctSecoes)} apurado</div>
-      <div class="mini"><span style="width:${d.pctSecoes}%"></span></div></div>
-    </div>`;
-  }).join('');
 }
 
 /* ---------- INIT ---------- */
