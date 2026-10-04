@@ -16,6 +16,13 @@ Abra `index.html` no navegador, ou:
 node serve.js
 ```
 
-e acesse http://localhost:8787.
+e acesse http://localhost:8787. Por padrão o servidor só aceita conexões deste computador; use `node serve.js --rede` para liberar a outros aparelhos da mesma rede.
+
+## Segurança
+
+- Página 100% estática: não há backend, login, cookies nem coleta de dados de quem acessa.
+- Content-Security-Policy: scripts só do próprio site; rede e imagens só de `resultados.tse.jus.br`.
+- Textos vindos do TSE são escapados antes de entrar no HTML.
+- `serve.js` serve apenas `index.html`, `app.js` e `mapa-brasil.js`, só via GET, com cabeçalhos de segurança.
 
 Mapa gerado a partir de [brazil-states.geojson](https://github.com/codeforamerica/click_that_hood) (Code for America).
